@@ -1,0 +1,22 @@
+# Core deps for the ssm-benchmark harness.
+#
+# NOTE on torch: on Google Colab, torch + CUDA come preinstalled. Do NOT reinstall
+# torch there (it forces a long recompile and can break the CUDA build of mamba-ssm).
+# Locally, install a CUDA build of torch matching your platform first, then `pip install -r`.
+#
+#   torch>=2.3            # provided by Colab; install manually for local runs
+
+transformers>=4.47
+accelerate>=0.30
+datasets>=2.20            # >=2.20 for IterableDataset.state_dict (we don't rely on it, but keep current)
+tokenizers>=0.20
+huggingface_hub>=0.24
+numpy>=1.26
+pyyaml>=6.0
+matplotlib>=3.8
+pandas>=2.0              # aggregate.py CSV summaries
+tqdm>=4.66
+
+# Fast Mamba/Jamba CUDA kernels are OPTIONAL and built separately (they ship no PyPI
+# wheels and compile from source). See requirements-kernels.txt and setup_colab.sh.
+# The whole harness runs correctly WITHOUT them via HuggingFace's eager fallback.

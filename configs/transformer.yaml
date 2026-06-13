@@ -1,0 +1,18 @@
+# Transformer arm — Llama-style decoder (RoPE + SwiGLU + RMSNorm), ~124M params.
+# Reference architecture for the param-matching of the other two arms.
+arch: transformer
+model:
+  vocab_size: 50304            # GPT-2 BPE (50257) padded to a multiple of 64
+  hidden_size: 768
+  num_hidden_layers: 12
+  num_attention_heads: 12
+  num_key_value_heads: 12      # full MHA (clean baseline)
+  intermediate_size: 2048      # SwiGLU gated MLP
+  hidden_act: silu
+  max_position_embeddings: 1024
+  rope_theta: 10000.0
+  rms_norm_eps: 1.0e-5
+  tie_word_embeddings: true    # shared with the other arms -> fairness on the backbone
+  attention_bias: false
+  mlp_bias: false
+# Expected: embedding 38.6M + 12 x 7.08M = ~123.5M total.

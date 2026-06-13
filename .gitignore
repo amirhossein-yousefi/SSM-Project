@@ -1,0 +1,27 @@
+# Runs, checkpoints, tokenized data — large/derived, never committed
+runs/
+data_cache/
+*.pt
+*.bin
+*.npy
+*.npz
+wheels/
+
+# Keep results summaries + figures, but ignore stray large artifacts
+results/**/*.pt
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.ipynb_checkpoints/
+.pytest_cache/
+.venv/
+venv/
+
+# OS / editor
+.DS_Store
+*.swp

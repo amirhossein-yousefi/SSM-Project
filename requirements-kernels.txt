@@ -1,0 +1,14 @@
+# OPTIONAL fast CUDA kernels for the Mamba/Jamba SSM layers.
+#
+# These have NO prebuilt PyPI wheels -> they compile from source (5-20 min, nvcc-heavy,
+# flaky on Colab). Install AFTER torch is present, with --no-build-isolation so the build
+# sees the CUDA torch instead of pulling torch-cpu. Cap parallelism to avoid OOM:
+#
+#   export MAX_JOBS=4
+#   pip install -r requirements-kernels.txt --no-build-isolation
+#
+# If the build fails, just skip this file: HuggingFace runs a correct (slower) torch
+# fallback automatically, and our registry sets use_mamba_kernels=False.
+
+causal-conv1d>=1.4.0
+mamba-ssm>=2.2.2

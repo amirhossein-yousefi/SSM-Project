@@ -1,0 +1,15 @@
+# Data pipeline config for the language-modeling runs.
+#
+# One-time pre-tokenization (data/prepare_fineweb.py) streams FineWeb-Edu, tokenizes with
+# the GPT-2 BPE, and packs to flat uint16 shards. Cache this on Google Drive so every Colab
+# session reuses it instead of re-tokenizing.
+tokenizer: gpt2                  # 50257 vocab; model vocab_size padded to 50304
+dataset: HuggingFaceFW/fineweb-edu
+dataset_name: sample-10BT        # ~10B-token sample; we take a ~1.5B slice
+eot_token: 50256                 # gpt2 <|endoftext|>, inserted between documents
+
+shard_tokens: 100000000          # 100M tokens/shard (~200MB uint16)
+target_train_tokens: 1500000000  # ~1.5B training tokens (15 shards)
+val_shards: 1                    # first shard held out for validation
+
+block_size: 1024                 # context length (== model max_position_embeddings)

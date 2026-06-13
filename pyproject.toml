@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ssm-bench"
+version = "0.1.0"
+description = "A reproducible benchmark comparing SSM (Mamba) vs Jamba vs Transformer models."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Amir Usefi", email = "amir.usefi75@gmail.com" }]
+
+# Runtime deps are listed in requirements.txt (torch is environment-provided on Colab).
+dependencies = [
+    "transformers>=4.47",
+    "datasets>=2.20",
+    "numpy>=1.26",
+    "pyyaml>=6.0",
+    "matplotlib>=3.8",
+    "pandas>=2.0",
+    "tqdm>=4.66",
+]
+
+[project.optional-dependencies]
+kernels = ["causal-conv1d>=1.4.0", "mamba-ssm>=2.2.2"]
+dev = ["pytest>=7.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
