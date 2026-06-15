@@ -12,8 +12,15 @@ RUNS_DIR=${RUNS_DIR:-"runs"}
 TOTAL_STEPS=${TOTAL_STEPS:-6000}
 MICRO_BATCH=${MICRO_BATCH:-16}
 GRAD_ACCUM=${GRAD_ACCUM:-32}
+# Jamba's Mamba layers run on the memory-heavy torch path -> smaller micro-batch, more
+# accumulation. micro*accum stays 512 for every arm, so the effective batch is identical.
+JAMBA_MICRO_BATCH=${JAMBA_MICRO_BATCH:-4}
+JAMBA_GRAD_ACCUM=${JAMBA_GRAD_ACCUM:-128}
 STAGE_DIR=${STAGE_DIR:-}        # e.g. /content on Colab for fast atomic staging
 EXTRA=${EXTRA:-}                # any extra flags, e.g. "--lr 3e-4"
+
+# reduce allocator fragmentation (helps the large torch-path Mamba activations)
+export PYTORCH_CUDA_ALLOC_CONF=${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}
 
 stage_flag=""
 [ -n "$STAGE_DIR" ] && stage_flag="--stage_dir $STAGE_DIR"
@@ -25,12 +32,17 @@ for arch in $ARCHS; do
       echo "SKIP $arch/seed$seed (DONE)"
       continue
     fi
-    echo "=== TRAIN $arch seed=$seed -> $run ==="
+    if [ "$arch" = "jamba" ]; then
+      mb="$JAMBA_MICRO_BATCH"; ga="$JAMBA_GRAD_ACCUM"
+    else
+      mb="$MICRO_BATCH"; ga="$GRAD_ACCUM"
+    fi
+    echo "=== TRAIN $arch seed=$seed (micro_batch=$mb grad_accum=$ga) -> $run ==="
     python scripts/train.py \
       --arch "$arch" --seed "$seed" \
       --data_dir "$DATA_DIR" --output_dir "$run" \
       --total_steps "$TOTAL_STEPS" \
-      --micro_batch_size "$MICRO_BATCH" --grad_accum "$GRAD_ACCUM" \
+      --micro_batch_size "$mb" --grad_accum "$ga" \
       $stage_flag $EXTRA
   done
 done

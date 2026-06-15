@@ -108,6 +108,11 @@ harness without any downloads or GPU.
 - The committed configs are **starting points**; `make check-params` finalizes the per-arm layer
   counts to within 5 % on the actual machine (closed-form param math for Mamba2/Jamba is
   unreliable).
+- **Jamba** runs its Mamba layers on the torch path (its Mamba-1-style CUDA kernel mismatches
+  dtypes under bf16 autocast), which is memory-heavier — so the orchestration gives it a smaller
+  micro-batch with more gradient accumulation (`4×128`) vs the other arms' `16×32`. Since
+  `micro_batch × grad_accum = 512` for every arm, the effective batch and optimization are
+  identical; only peak memory differs. Override via `JAMBA_MICRO_BATCH` / `JAMBA_GRAD_ACCUM`.
 
 ## Results
 
