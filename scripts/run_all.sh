@@ -32,8 +32,10 @@ for arch in $ARCHS; do
       echo "SKIP $arch/seed$seed (DONE)"
       continue
     fi
+    gc_flag=""
     if [ "$arch" = "jamba" ]; then
       mb="$JAMBA_MICRO_BATCH"; ga="$JAMBA_GRAD_ACCUM"
+      gc_flag="--grad_checkpointing"   # torch-path Mamba is memory-heavy
     else
       mb="$MICRO_BATCH"; ga="$GRAD_ACCUM"
     fi
@@ -43,7 +45,7 @@ for arch in $ARCHS; do
       --data_dir "$DATA_DIR" --output_dir "$run" \
       --total_steps "$TOTAL_STEPS" \
       --micro_batch_size "$mb" --grad_accum "$ga" \
-      $stage_flag $EXTRA
+      $gc_flag $stage_flag $EXTRA
   done
 done
 echo "All runs complete."

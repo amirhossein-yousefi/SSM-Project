@@ -83,6 +83,14 @@ def train(cfg: Dict[str, Any]) -> Dict[str, Any]:
     vocab_size = model_cfg.get("vocab_size", 50304)
 
     model = build_model(cfg["arch"], model_cfg).to(device)
+    if cfg.get("grad_checkpointing") and hasattr(model, "gradient_checkpointing_enable"):
+        try:
+            model.gradient_checkpointing_enable()
+            if hasattr(model, "config"):
+                model.config.use_cache = False  # incompatible with checkpointing
+            print("[trainer] gradient checkpointing enabled (trades compute for memory)")
+        except Exception as e:
+            print(f"[trainer] gradient checkpointing unavailable: {e}")
     n_total = count_params(model)
     n_active = active_params(
         model,

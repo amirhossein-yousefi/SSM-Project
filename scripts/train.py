@@ -79,6 +79,8 @@ def main() -> None:
     ap.add_argument("--save_every", type=int, default=250)
     ap.add_argument("--snapshot_every", type=int, default=1000)
     ap.add_argument("--keep_snapshots", type=int, default=3)
+    ap.add_argument("--grad_checkpointing", action="store_true",
+                    help="trade compute for memory (recommended for the Jamba torch path)")
     ap.add_argument("--smoke", action="store_true", help="tiny model + random tokens")
     args = ap.parse_args()
 
