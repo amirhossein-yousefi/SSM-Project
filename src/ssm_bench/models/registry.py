@@ -18,6 +18,7 @@ Tiering for the SSM path (Mamba / Jamba mixers):
 """
 from __future__ import annotations
 
+import os
 from typing import Any, Dict
 
 ARCHS = ("transformer", "mamba", "jamba")
@@ -66,7 +67,13 @@ def build_model(arch: str, cfg: Dict[str, Any]):
         from transformers import JambaConfig, JambaForCausalLM
 
         c = dict(cfg)
-        c["use_mamba_kernels"] = kernels_available() and not force_torch
+        # Jamba's Mamba-1-style selective_scan CUDA kernel raises a dtype error under bf16
+        # autocast ("Expected B.scalar_type() == input_type"), unlike Mamba-2's chunk-scan
+        # kernel. Default to the autocast-safe torch path. Opt back in (only safe WITHOUT
+        # autocast) via `force_kernels: true` in the config or env SSM_JAMBA_KERNELS=1.
+        force_kernels = bool(c.pop("force_kernels", False)) or os.environ.get("SSM_JAMBA_KERNELS") == "1"
+        c.pop("use_mamba_kernels", None)
+        c["use_mamba_kernels"] = force_kernels and kernels_available() and not force_torch
         return JambaForCausalLM(JambaConfig(**c))
 
 
