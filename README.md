@@ -108,11 +108,14 @@ harness without any downloads or GPU.
 - The committed configs are **starting points**; `make check-params` finalizes the per-arm layer
   counts to within 5 % on the actual machine (closed-form param math for Mamba2/Jamba is
   unreliable).
-- **Jamba** runs its Mamba layers on the torch path (its Mamba-1-style CUDA kernel mismatches
-  dtypes under bf16 autocast), which is memory-heavier — so the orchestration gives it a smaller
-  micro-batch with more gradient accumulation (`4×128`) vs the other arms' `16×32`. Since
-  `micro_batch × grad_accum = 512` for every arm, the effective batch and optimization are
-  identical; only peak memory differs. Override via `JAMBA_MICRO_BATCH` / `JAMBA_GRAD_ACCUM`.
+- **Jamba precision.** Jamba's Mamba-1-style CUDA kernel mismatches dtypes under bf16 autocast,
+  so the orchestration trains Jamba with the **kernel on but autocast off** (`--force_kernels
+  --no_autocast`, i.e. fp32) — fast like the Mamba-2 arm and numerically stable, just fp32 vs the
+  others' bf16 autocast. fp32 logits use more memory, so Jamba uses `8×64` vs the others' `16×32`
+  (still `micro_batch × grad_accum = 512`, so identical effective batch). Drop `--force_kernels`
+  to fall back to the (correct but very slow) torch path. Time-based checkpointing
+  (`--ckpt_seconds`, default 600) guarantees a resumable checkpoint within ~10 min regardless of
+  per-step speed.
 
 ## Results
 

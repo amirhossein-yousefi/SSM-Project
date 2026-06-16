@@ -79,8 +79,15 @@ def main() -> None:
     ap.add_argument("--save_every", type=int, default=250)
     ap.add_argument("--snapshot_every", type=int, default=1000)
     ap.add_argument("--keep_snapshots", type=int, default=3)
+    ap.add_argument("--ckpt_seconds", type=int, default=600,
+                    help="also checkpoint at least this often (wall-clock); 0 disables")
     ap.add_argument("--grad_checkpointing", action="store_true",
-                    help="trade compute for memory (recommended for the Jamba torch path)")
+                    help="trade compute for memory")
+    ap.add_argument("--no_autocast", action="store_true",
+                    help="disable bf16 autocast; run in the model's native dtype (fp32). "
+                         "Needed to use the Jamba Mamba kernel (kernel + autocast mismatch dtypes).")
+    ap.add_argument("--force_kernels", action="store_true",
+                    help="force the fast Mamba CUDA kernel for Jamba (only safe with --no_autocast)")
     ap.add_argument("--smoke", action="store_true", help="tiny model + random tokens")
     args = ap.parse_args()
 
@@ -96,6 +103,9 @@ def main() -> None:
         args.warmup_steps = min(args.warmup_steps, 2)
     else:
         model_cfg = load_model_cfg(args.arch, args.config_dir)
+
+    if args.force_kernels:
+        model_cfg["force_kernels"] = True
 
     cfg = vars(args)
     cfg["model"] = model_cfg

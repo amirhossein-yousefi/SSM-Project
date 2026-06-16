@@ -69,7 +69,7 @@ def evaluate(model, val_loader, eval_steps: int, device: str, use_amp: bool) -> 
 
 def train(cfg: Dict[str, Any]) -> Dict[str, Any]:
     device = _device()
-    use_amp = device == "cuda"
+    use_amp = device == "cuda" and not cfg.get("no_autocast", False)
     run_dir = cfg["output_dir"]
     ckpt_dir = os.path.join(run_dir, "checkpoints")
     os.makedirs(ckpt_dir, exist_ok=True)
@@ -147,8 +147,10 @@ def train(cfg: Dict[str, Any]) -> Dict[str, Any]:
     atexit.register(lambda: (not _interrupted["flag"]) and snapshot("last.pt"))
 
     tokens_per_step = train_loader.tokens_per_batch * cfg["grad_accum"]
+    ckpt_seconds = cfg.get("ckpt_seconds", 600)  # wall-clock checkpoint floor
     model.train()
     t_window = time.time()
+    last_ckpt_t = time.time()
 
     while global_step < cfg["total_steps"]:
         optimizer.zero_grad(set_to_none=True)
@@ -193,8 +195,10 @@ def train(cfg: Dict[str, Any]) -> Dict[str, Any]:
                 best_val = val_loss
                 snapshot("best.pt")
 
-        if global_step % cfg["save_every"] == 0:
+        if global_step % cfg["save_every"] == 0 or (
+                ckpt_seconds and time.time() - last_ckpt_t > ckpt_seconds):
             snapshot("last.pt")
+            last_ckpt_t = time.time()
         if cfg["snapshot_every"] and global_step % cfg["snapshot_every"] == 0:
             snapshot(f"step{global_step}.pt")
             ckpt.prune_snapshots(ckpt_dir, keep=cfg.get("keep_snapshots", 3))

@@ -14,8 +14,8 @@ MICRO_BATCH=${MICRO_BATCH:-16}
 GRAD_ACCUM=${GRAD_ACCUM:-32}
 # Jamba's Mamba layers run on the memory-heavy torch path -> smaller micro-batch, more
 # accumulation. micro*accum stays 512 for every arm, so the effective batch is identical.
-JAMBA_MICRO_BATCH=${JAMBA_MICRO_BATCH:-4}
-JAMBA_GRAD_ACCUM=${JAMBA_GRAD_ACCUM:-128}
+JAMBA_MICRO_BATCH=${JAMBA_MICRO_BATCH:-8}
+JAMBA_GRAD_ACCUM=${JAMBA_GRAD_ACCUM:-64}
 STAGE_DIR=${STAGE_DIR:-}        # e.g. /content on Colab for fast atomic staging
 EXTRA=${EXTRA:-}                # any extra flags, e.g. "--lr 3e-4"
 
@@ -32,10 +32,12 @@ for arch in $ARCHS; do
       echo "SKIP $arch/seed$seed (DONE)"
       continue
     fi
-    gc_flag=""
+    arch_flags=""
     if [ "$arch" = "jamba" ]; then
       mb="$JAMBA_MICRO_BATCH"; ga="$JAMBA_GRAD_ACCUM"
-      gc_flag="--grad_checkpointing"   # torch-path Mamba is memory-heavy
+      # fast Mamba kernel with autocast OFF (fp32) -> avoids the kernel/bf16 dtype bug
+      # and the slow torch path. Drop --force_kernels to fall back to the (slow) torch path.
+      arch_flags="--force_kernels --no_autocast"
     else
       mb="$MICRO_BATCH"; ga="$GRAD_ACCUM"
     fi
@@ -45,7 +47,7 @@ for arch in $ARCHS; do
       --data_dir "$DATA_DIR" --output_dir "$run" \
       --total_steps "$TOTAL_STEPS" \
       --micro_batch_size "$mb" --grad_accum "$ga" \
-      $gc_flag $stage_flag $EXTRA
+      $arch_flags $stage_flag $EXTRA
   done
 done
 echo "All runs complete."
