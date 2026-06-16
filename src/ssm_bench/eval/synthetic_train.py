@@ -43,12 +43,14 @@ def small_config(arch: str, d_model: int, vocab: int, n_layer: int, max_pos: int
                 "head_dim": head_dim, "state_size": 64, "expand": 2, "n_groups": 1,
                 "conv_kernel": 4, "chunk_size": 32}
     if arch == "jamba":
+        # force the torch path: the Jamba Mamba kernel mismatches dtypes under bf16 autocast
+        # (used here), and these synthetic models are tiny so the torch path is plenty fast.
         return {**common, "num_hidden_layers": max(n_layer, 2), "num_attention_heads": 4,
                 "num_key_value_heads": 2, "intermediate_size": 2 * d_model,
                 "mamba_d_state": 16, "mamba_d_conv": 4, "mamba_expand": 2,
                 "mamba_dt_rank": "auto", "attn_layer_period": 2, "attn_layer_offset": 1,
                 "expert_layer_period": 2, "expert_layer_offset": 1, "num_experts": 2,
-                "num_experts_per_tok": 2}
+                "num_experts_per_tok": 2, "force_torch": True}
     raise KeyError(arch)
 
 

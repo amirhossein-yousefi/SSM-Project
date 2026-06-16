@@ -70,6 +70,11 @@ def run_cell(arch: str, L: int, mode: str, batch: int, config_dir: str,
         torch.cuda.empty_cache()
         torch.cuda.reset_peak_memory_stats()
         cfg = _load_full_cfg(arch, config_dir)
+        if arch == "jamba":
+            # torch path: the Jamba Mamba kernel mismatches dtypes under the bf16 autocast
+            # used in the timed regions. (Jamba's efficiency thus reflects the torch path;
+            # the architectural scaling — memory, decode growth — still holds.)
+            cfg["force_torch"] = True
         cfg["max_position_embeddings"] = max(cfg.get("max_position_embeddings", 1024), L + gen + 1)
         vocab = cfg.get("vocab_size", 50304)
         model = build_model(arch, cfg).cuda()
