@@ -41,11 +41,11 @@ def load_val_tokens(data_dir: str, max_tokens: Optional[int] = None) -> np.ndarr
 
 
 def eval_ppl(model, ids, max_len: int = 1024, stride: int = 512,
-             device: str = "cuda") -> Dict[str, float]:
+             device: str = "cuda", use_amp: bool = True) -> Dict[str, float]:
     import torch
 
     model.eval()
-    use_amp = device == "cuda"
+    use_amp = use_amp and device == "cuda"
     nll_sum, n_tok = 0.0, 0
     prev_end = 0
     n = ids.size(0)
@@ -86,7 +86,16 @@ def evaluate_run(run_dir: str, data_dir: str, ckpt_name: str = "best.pt",
     arch = cfg["arch"]
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    model = build_model(arch, dict(cfg["model"])).to(device)
+    # Jamba's Mamba CUDA kernel mismatches dtypes under autocast, so eval it on the
+    # torch path with autocast off (matching how it was trained). Strip the persisted
+    # force_kernels control flag so the rebuild can't re-enable the kernel.
+    model_cfg = dict(cfg["model"])
+    model_cfg.pop("force_kernels", None)
+    if arch == "jamba":
+        model_cfg["force_torch"] = True
+    use_amp = arch != "jamba"
+
+    model = build_model(arch, model_cfg).to(device)
     ckpt_path = os.path.join(run_dir, "checkpoints", ckpt_name)
     if not os.path.exists(ckpt_path):
         ckpt_path = os.path.join(run_dir, "checkpoints", "last.pt")
@@ -94,7 +103,7 @@ def evaluate_run(run_dir: str, data_dir: str, ckpt_name: str = "best.pt",
     model.load_state_dict(state["model"])
 
     ids = torch.from_numpy(load_val_tokens(data_dir, max_tokens))
-    res = eval_ppl(model, ids, max_len=max_len, stride=stride, device=device)
+    res = eval_ppl(model, ids, max_len=max_len, stride=stride, device=device, use_amp=use_amp)
     res.update({"arch": arch, "run_dir": run_dir,
                 "n_params_total": cfg.get("n_params_total"),
                 "n_params_active": cfg.get("n_params_active"),

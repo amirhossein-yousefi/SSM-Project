@@ -152,7 +152,9 @@ def _run_subprocess(arch: str, L: int, mode: str, batch: int, config_dir: str) -
         return {"arch": arch, "L": L, "mode": mode, "batch": batch, "oom": False,
                 "error": f"no_json (rc={proc.returncode}): {proc.stderr[-200:]}"}
     except subprocess.TimeoutExpired:
-        return {"arch": arch, "L": L, "mode": mode, "batch": batch, "error": "timeout"}
+        # cost grows with L, so a timeout means every larger L will also time out — skip them
+        return {"arch": arch, "L": L, "mode": mode, "batch": batch,
+                "error": "timeout", "timed_out": True}
 
 
 def driver(archs: List[str], lens: List[int], modes: List[str], batch: int,
@@ -177,11 +179,16 @@ def driver(archs: List[str], lens: List[int], modes: List[str], batch: int,
                        else run_cell(arch, L, mode, batch, config_dir))
                 res["run_id"] = rid
                 append_jsonl(out, res)
-                print(f"[eff] {arch} {mode} L={L}: "
-                      + ("OOM" if res.get("oom") else f"{res.get('ms_med', float('nan')):.2f}ms "
-                         f"peak={res.get('peak_gb', 0):.2f}GB"))
                 if res.get("oom"):
-                    oomed = True  # larger L will also OOM
+                    status = "OOM"
+                elif res.get("timed_out"):
+                    status = "TIMEOUT"
+                else:
+                    status = (f"{res.get('ms_med', float('nan')):.2f}ms "
+                              f"peak={res.get('peak_gb', 0):.2f}GB")
+                print(f"[eff] {arch} {mode} L={L}: {status}")
+                if res.get("oom") or res.get("timed_out"):
+                    oomed = True  # larger L will also OOM / time out
 
 
 def main() -> None:

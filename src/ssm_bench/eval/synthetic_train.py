@@ -90,20 +90,46 @@ def train_cell(arch: str, gen: Callable, gkw: dict, d_model: int, vocab: int,
 
 
 def eval_acc(model, gen: Callable, gkw: dict, vocab: int, batch: int,
-             eval_seed: int, device: str) -> float:
+             eval_seed: int, device: str, micro: int = 8) -> float:
+    """Accuracy on answer positions, micro-batched and OOM-safe.
+
+    Long induction eval lengths on Jamba's torch path materialize huge
+    [B, d_inner, L, d_state] activations, so evaluate in micro-batches and halve the
+    sub-batch on OOM (returning NaN if even a single example won't fit), rather than
+    crashing the whole sweep.
+    """
     import torch
 
     model.eval()
     inp, lab = gen(batch_size=batch, seed=eval_seed, **gkw)
-    x, y = _to_torch(inp, device), _to_torch(lab, device)
-    with torch.no_grad():
-        logits = model(input_ids=x).logits
-    pred = logits[:, :-1].argmax(-1)
-    gold = y[:, 1:]
-    mask = gold != -100
-    if mask.sum().item() == 0:
-        return float("nan")
-    return (pred[mask] == gold[mask]).float().mean().item()
+    correct = total = 0
+    i = 0
+    while i < batch:
+        bs = min(micro, batch - i)
+        while bs >= 1:
+            try:
+                x = _to_torch(inp[i:i + bs], device)
+                y = _to_torch(lab[i:i + bs], device)
+                with torch.no_grad():
+                    logits = model(input_ids=x).logits
+                pred = logits[:, :-1].argmax(-1)
+                gold = y[:, 1:]
+                m = gold != -100
+                if m.any():
+                    correct += (pred[m] == gold[m]).sum().item()
+                    total += int(m.sum().item())
+                del logits
+                break
+            except (torch.cuda.OutOfMemoryError, RuntimeError) as ex:
+                if "out of memory" not in str(ex).lower():
+                    raise
+                torch.cuda.empty_cache()
+                bs //= 2
+        if bs < 1:  # even one example won't fit
+            torch.cuda.empty_cache()
+            return float("nan") if total == 0 else correct / total
+        i += bs
+    return float("nan") if total == 0 else correct / total
 
 
 # ----------------------------------------------------------------- sweeps ------

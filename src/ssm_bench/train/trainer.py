@@ -111,6 +111,10 @@ def train(cfg: Dict[str, Any]) -> Dict[str, Any]:
 
     # config.json captures the full run spec (param counts included for the results table)
     run_config = dict(cfg)
+    # don't persist runtime-control flags into the model spec — a later rebuild (e.g. the
+    # perplexity eval, which uses autocast) must not re-enable the Jamba kernel from disk.
+    run_config["model"] = {k: v for k, v in model_cfg.items()
+                           if k not in ("force_kernels", "force_torch")}
     run_config.update({"n_params_total": n_total, "n_params_active": n_active,
                        "device": device, "torch_version": torch.__version__})
     dump_config(os.path.join(run_dir, "config.json"), run_config)
